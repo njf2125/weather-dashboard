@@ -29,42 +29,7 @@ function loadLastLocation(): { lat: number; lon: number; name: string; state?: s
     }
 }
 
-// Get references to our HTML elements
-const cityInput = document.getElementById('city-input') as HTMLInputElement;
-const searchButton = document.getElementById('search-button') as HTMLButtonElement;
-const currentWeatherDisplay = document.getElementById('current-weather-display') as HTMLDivElement;
-const forecastDisplay = document.getElementById('forecast-display') as HTMLDivElement;
-const alertsDisplay = document.getElementById('alerts-display') as HTMLDivElement;
-const cityDisplayName = document.getElementById('city-name-display') as HTMLDivElement;
-const locationNameSpan = document.getElementById('location-name') as HTMLSpanElement;
-const activeAlertsLink = document.getElementById('active-alerts-link') as HTMLAnchorElement;
-const unitToggle = document.getElementById('unit-toggle') as HTMLDivElement;
-const currentLocationButton = document.getElementById('current-location-button') as HTMLButtonElement;
-const loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
-const errorMessageDisplay = document.getElementById('error-message') as HTMLDivElement;
-
-// Function to display error messages on the page
-function displayError(message: string | null) {
-    if (message) {
-        errorMessageDisplay.textContent = message;
-        errorMessageDisplay.classList.remove('hidden');
-    } else {
-        errorMessageDisplay.textContent = '';
-        errorMessageDisplay.classList.add('hidden');
-    }
-}
-
-function showLoading(isLoading: boolean) {
-    if (isLoading) {
-        loadingOverlay.classList.remove('hidden');
-    } else {
-        loadingOverlay.classList.add('hidden');
-    }
-}
-
 let preferredUnits: 'metric' | 'imperial' = 'imperial'; // Default to Fahrenheit
-
-console.log("cityDisplayName element:", cityDisplayName);
 
 const weatherIconMap: { [key: string]: string } = {
     "01d": "wi-day-sunny",
@@ -91,39 +56,59 @@ function getWeatherIconClass(iconCode: string): string {
     return weatherIconMap[iconCode] || "wi-na"; // Default to "not available" icon
 }
 
+// Helper function to display error messages on the page
+function displayError(errorMessageDisplay: HTMLDivElement, message: string | null) {
+    if (message) {
+        errorMessageDisplay.textContent = message;
+        errorMessageDisplay.classList.remove('hidden');
+    } else {
+        errorMessageDisplay.textContent = '';
+        errorMessageDisplay.classList.add('hidden');
+    }
+}
+
+// Helper function to show/hide loading spinner
+function showLoading(loadingOverlay: HTMLDivElement, isLoading: boolean) {
+    if (isLoading) {
+        loadingOverlay.classList.remove('hidden');
+    } else {
+        loadingOverlay.classList.add('hidden');
+    }
+}
+
 // Function to fetch weather data
-async function getWeatherData(lat: number, lon: number, locationData?: { lat: number; lon: number; name: string; state?: string }) {
+export async function getWeatherData(lat: number, lon: number, locationData: { lat: number; lon: number; name: string; state?: string }, uiElements: UIElements) {
     const url = `${BASE_URL}?lat=${lat}&lon=${lon}&exclude=hourly,minutely&units=${preferredUnits}&appid=${API_KEY}`;
 
     try {
         const response = await fetch(url);
         if (!response.ok) {
-            showLoading(false);
+            showLoading(uiElements.loadingOverlay, false);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data: OpenWeatherOneCallResponse = await response.json();
         console.log("Weather data received:", data);
 
-        displayCurrentWeather(data.current);
-        displayForecast(data.daily);
-        displayAlerts(data.alerts);
+        displayCurrentWeather(uiElements.currentWeatherDisplay, data.current, preferredUnits);
+        displayForecast(uiElements.forecastDisplay, data.daily, preferredUnits);
+        displayAlerts(uiElements.alertsDisplay, uiElements.activeAlertsLink, data.alerts);
         if (locationData) {
             saveLastLocation(locationData);
         }
-        showLoading(false);
+        showLoading(uiElements.loadingOverlay, false);
 
     } catch (error) {
-        showLoading(false);
+        showLoading(uiElements.loadingOverlay, false);
         console.error("Could not fetch weather data:", error);
-        displayError(`Failed to fetch weather data: ${error instanceof Error ? error.message : "Unknown error"}`);
-        currentWeatherDisplay.innerHTML = '<p>Failed to load current weather.</p>';
-        forecastDisplay.innerHTML = '<p>Failed to load forecast.</p>';
-        alertsDisplay.innerHTML = '<p>Failed to load alerts.</p>';
+        displayError(uiElements.errorMessageDisplay, `Failed to fetch weather data: ${error instanceof Error ? error.message : "Unknown error"}`);
+        uiElements.currentWeatherDisplay.innerHTML = '<p>Failed to load current weather.</p>';
+        uiElements.forecastDisplay.innerHTML = '<p>Failed to load forecast.</p>';
+        uiElements.alertsDisplay.innerHTML = '<p>Failed to load alerts.</p>';
     }
 }
 
 // Function to display current weather
-function displayCurrentWeather(current: CurrentWeatherData) {
+export function displayCurrentWeather(currentWeatherDisplay: HTMLDivElement, current: CurrentWeatherData, preferredUnits: 'metric' | 'imperial') {
     // Clear previous content
     currentWeatherDisplay.innerHTML = '';
 
@@ -147,12 +132,12 @@ function displayCurrentWeather(current: CurrentWeatherData) {
 }
 
 // Function to display forecast
-function displayForecast(daily: DailyForecastData[]) {
+export function displayForecast(forecastDisplay: HTMLDivElement, daily: DailyForecastData[], preferredUnits: 'metric' | 'imperial') {
     forecastDisplay.innerHTML = ''; // Clear previous content
 
-    // We want 7 days starting from *tomorrow*.
+    // We want 5 days starting from *tomorrow*.
     // The first element (daily[0]) is today's forecast, which is covered by current weather.
-    // So we slice from index 1 and take 7 elements.
+    // So we slice from index 1 and take 5 elements.
     const forecastDays = daily.slice(1, 6); // Gets elements from index 1 up to (but not including) 6
     const tempUnitSymbol = preferredUnits === 'metric' ? '°C' : '°F';
 
@@ -183,7 +168,7 @@ function displayForecast(daily: DailyForecastData[]) {
 }
 
 // Function to display alerts
-function displayAlerts(alerts?: WeatherAlert[]) {
+export function displayAlerts(alertsDisplay: HTMLDivElement, activeAlertsLink: HTMLAnchorElement, alerts?: WeatherAlert[]) {
     alertsDisplay.innerHTML = ''; // Clear previous content
     if (alerts && alerts.length > 0) {
         alertsDisplay.innerHTML = `<h3>Active Alerts:</h3>`;
@@ -206,60 +191,8 @@ function displayAlerts(alerts?: WeatherAlert[]) {
     }
 }
 
-// Add an event listener to the search button
-searchButton.addEventListener('click', performSearch);
-
-unitToggle.addEventListener('change', async (event) => {
-    const target = event.target as HTMLInputElement;
-    if (target.name === 'temp-unit') {
-        preferredUnits = target.value as 'metric' | 'imperial';
-        displayError(null); // Clear any previous errors
-
-        const lastLocation = loadLastLocation();
-        if (lastLocation) {
-            showLoading(true); // Show loading when re-fetching for unit change
-            await getWeatherData(lastLocation.lat, lastLocation.lon, lastLocation);
-            // Update display name if it was cleared or changed
-            cityDisplayName.textContent = lastLocation.state ? `${lastLocation.name}, ${lastLocation.state}` : lastLocation.name;
-            cityDisplayName.style.display = 'block';
-        } else if (cityInput.value.trim()) {
-            // If there's text in the input but no lastLocation (e.g., first search after refresh)
-            performSearch();
-        }
-    }
-});
-
-currentLocationButton.addEventListener('click', getUserLocation);
-
-async function performSearch() {
-    const city = cityInput.value.trim();
-    if (city) {
-        displayError(null); // Clear any previous errors
-        showLoading(true); // Show loading when initiating city search
-        console.log(`Searching for weather in: ${city}`);
-        const coords = await getLatLonFromCity(city);
-        if (coords) {
-            getWeatherData(coords.lat, coords.lon, coords);
-            // Update the display name using the span
-            locationNameSpan.textContent = coords.state ? `${coords.name}, ${coords.state}` : coords.name;
-            cityDisplayName.style.display = 'block';
-        } else {
-            showLoading(false); // Hide loading if coords not found
-        }
-    } else {
-        displayError('Please enter a city name or use "Use My Location".');
-        currentWeatherDisplay.innerHTML = '';
-        currentWeatherDisplay.style.display = 'none'; // Hide it
-        forecastDisplay.innerHTML = '';
-        alertsDisplay.innerHTML = '';
-        cityDisplayName.style.display = 'none';
-        locationNameSpan.textContent = ''; // Clear the span content
-        activeAlertsLink.classList.add('hidden'); // Hide the link
-    }
-}
-
 // Function to get Lat/Lon from city name (using OpenWeatherMap's Geocoding API)
-async function getLatLonFromCity(input: string): Promise<{ lat: number; lon: number; name: string; state?: string } | null> {
+export async function getLatLonFromCity(input: string, uiElements: UIElements): Promise<{ lat: number; lon: number; name: string; state?: string } | null> {
     let geoUrl: string;
     // Check if the input is a zip code (5 digits for US zip codes)
     if (/^\d{5}$/.test(input)) {
@@ -275,10 +208,10 @@ async function getLatLonFromCity(input: string): Promise<{ lat: number; lon: num
         if (!response.ok) {
             // Check for specific HTTP errors
             if (response.status === 400) {
-                showLoading(false); // Hide loading on error
+                showLoading(uiElements.loadingOverlay, false);
                 throw new Error("Bad request. Please check your input format.");
             } else if (response.status === 401) {
-                showLoading(false); // Hide loading on error
+                showLoading(uiElements.loadingOverlay, false);
                  throw new Error("Unauthorized. Please check your API key.");
             }
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -294,49 +227,148 @@ async function getLatLonFromCity(input: string): Promise<{ lat: number; lon: num
                 if (!reverseResponse.ok) {
                     // We can still proceed without the state, just log the error
                     console.error(`HTTP error on reverse geocoding! status: ${reverseResponse.status}`);
-                    showLoading(false); // Hide loading on error
+                    showLoading(uiElements.loadingOverlay, false);
                     return { lat: data.lat, lon: data.lon, name: data.name };
                 }
                 const reverseData = await reverseResponse.json();
                 const state = reverseData.length > 0 ? reverseData[0].state : undefined;
-                showLoading(false); // Hide loading on success
+                showLoading(uiElements.loadingOverlay, false);
                 return { lat: data.lat, lon: data.lon, name: data.name, state: state };
             } else {
-                displayError(`Zip code "${input}" not found. Please try again.`);
-                cityDisplayName.textContent = '';
-                cityDisplayName.style.display = 'none';
-                showLoading(false); // Hide loading on error
+                displayError(uiElements.errorMessageDisplay, `Zip code "${input}" not found. Please try again.`);
+                uiElements.cityDisplayName.textContent = '';
+                uiElements.cityDisplayName.style.display = 'none';
+                showLoading(uiElements.loadingOverlay, false);
                 return null;
             }
         } else { // If it was a city name search
             if (data.length > 0) {
                 console.log("Geocoding data for", input, ":", data[0]);
-                showLoading(false); // Hide loading on success
+                showLoading(uiElements.loadingOverlay, false);
                 return { lat: data[0].lat, lon: data[0].lon, name: data[0].name, state: data[0].state };
             } else {
-                displayError(`City "${input}" not found. Please try adding state/country (e.g., "Wilmington, NC, US" or "London, UK").`);
-                cityDisplayName.textContent = '';
-                cityDisplayName.style.display = 'none';
-                showLoading(false); // Hide loading on error
+                displayError(uiElements.errorMessageDisplay, `City "${input}" not found. Please try adding state/country (e.g., "Wilmington, NC, US" or "London, UK").`);
+                uiElements.cityDisplayName.textContent = '';
+                uiElements.cityDisplayName.style.display = 'none';
+                showLoading(uiElements.loadingOverlay, false);
                 return null;
             }
         }
     } catch (error) {
         console.error("Error fetching geocoding data:", error);
-        displayError(`Failed to get coordinates: ${error instanceof Error ? error.message : "Unknown error"}. Please check your input or API key.`);
-        showLoading(false); // Hide loading on error
+        displayError(uiElements.errorMessageDisplay, `Failed to get coordinates: ${error instanceof Error ? error.message : "Unknown error"}. Please check your input or API key.`);
+        showLoading(uiElements.loadingOverlay, false);
         return null;
     }
 }
 
+interface UIElements {
+    cityInput: HTMLInputElement;
+    searchButton: HTMLButtonElement;
+    currentWeatherDisplay: HTMLDivElement;
+    forecastDisplay: HTMLDivElement;
+    alertsDisplay: HTMLDivElement;
+    cityDisplayName: HTMLDivElement;
+    locationNameSpan: HTMLSpanElement;
+    activeAlertsLink: HTMLAnchorElement;
+    unitToggle: HTMLDivElement;
+    currentLocationButton: HTMLButtonElement;
+    loadingOverlay: HTMLDivElement;
+    errorMessageDisplay: HTMLDivElement;
+}
 
-async function getUserLocation() {
+// Export initializeUI function
+export function initializeUI(): UIElements {
+    // Assign DOM elements
+    const cityInput = document.getElementById('city-input') as HTMLInputElement;
+    const searchButton = document.getElementById('search-button') as HTMLButtonElement;
+    const currentWeatherDisplay = document.getElementById('current-weather-display') as HTMLDivElement;
+    const forecastDisplay = document.getElementById('forecast-display') as HTMLDivElement;
+    const alertsDisplay = document.getElementById('alerts-display') as HTMLDivElement;
+    const cityDisplayName = document.getElementById('city-name-display') as HTMLDivElement;
+    const locationNameSpan = document.getElementById('location-name') as HTMLSpanElement;
+    const activeAlertsLink = document.getElementById('active-alerts-link') as HTMLAnchorElement;
+    const unitToggle = document.getElementById('unit-toggle') as HTMLDivElement;
+    const currentLocationButton = document.getElementById('current-location-button') as HTMLButtonElement;
+    const loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
+    const errorMessageDisplay = document.getElementById('error-message') as HTMLDivElement;
+
+    const uiElements: UIElements = {
+        cityInput, searchButton, currentWeatherDisplay, forecastDisplay, alertsDisplay,
+        cityDisplayName, locationNameSpan, activeAlertsLink, unitToggle, currentLocationButton,
+        loadingOverlay, errorMessageDisplay
+    };
+
+    // Event Listeners
+    searchButton.addEventListener('click', () => performSearch(uiElements));
+
+    unitToggle.addEventListener('change', async (event) => {
+        const target = event.target as HTMLInputElement;
+        if (target.name === 'temp-unit') {
+            preferredUnits = target.value as 'metric' | 'imperial';
+            displayError(uiElements.errorMessageDisplay, null); // Clear any previous errors
+
+            const lastLocation = loadLastLocation();
+            if (lastLocation) {
+                showLoading(uiElements.loadingOverlay, true); // Show loading when re-fetching for unit change
+                await getWeatherData(lastLocation.lat, lastLocation.lon, lastLocation, uiElements);
+                // Update display name if it was cleared or changed
+                uiElements.locationNameSpan.textContent = lastLocation.state ? `${lastLocation.name}, ${lastLocation.state}` : lastLocation.name;
+                uiElements.cityDisplayName.style.display = 'block';
+            } else if (uiElements.cityInput.value.trim()) {
+                // If there's text in the input but no lastLocation (e.g., first search after refresh)
+                performSearch(uiElements);
+            }
+        }
+    });
+
+    currentLocationButton.addEventListener('click', () => getUserLocation(uiElements));
+
+    uiElements.cityInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            performSearch(uiElements);
+        }
+    });
+
+    return uiElements;
+}
+
+// These functions now accept uiElements as a parameter
+async function performSearch(uiElements: UIElements) {
+    const city = uiElements.cityInput.value.trim();
+    if (city) {
+        displayError(uiElements.errorMessageDisplay, null); // Clear any previous errors
+        showLoading(uiElements.loadingOverlay, true); // Show loading when initiating city search
+        console.log(`Searching for weather in: ${city}`);
+        const coords = await getLatLonFromCity(city, uiElements);
+        if (coords) {
+            getWeatherData(coords.lat, coords.lon, coords, uiElements);
+            // Update the display name using the span
+            uiElements.locationNameSpan.textContent = coords.state ? `${coords.name}, ${coords.state}` : coords.name;
+            uiElements.cityDisplayName.style.display = 'block';
+        } else {
+            showLoading(uiElements.loadingOverlay, false); // Hide loading if coords not found
+        }
+    }
+    else {
+        displayError(uiElements.errorMessageDisplay, 'Please enter a city name or use "Use My Location".');
+        uiElements.currentWeatherDisplay.innerHTML = '';
+        uiElements.currentWeatherDisplay.style.display = 'none'; // Hide it
+        uiElements.forecastDisplay.innerHTML = '';
+        uiElements.alertsDisplay.innerHTML = '';
+        uiElements.cityDisplayName.style.display = 'none';
+        uiElements.locationNameSpan.textContent = ''; // Clear the span content
+        uiElements.activeAlertsLink.classList.add('hidden'); // Hide the link
+    }
+}
+
+async function getUserLocation(uiElements: UIElements) {
     if (navigator.geolocation) {
-        showLoading(true); // Show loading when getting geolocation
-        cityInput.value = "Getting your location..."; // Provide feedback
-        currentWeatherDisplay.innerHTML = '';
-        forecastDisplay.innerHTML = '';
-        alertsDisplay.innerHTML = '';
+        showLoading(uiElements.loadingOverlay, true); // Show loading when getting geolocation
+        uiElements.cityInput.value = "Getting your location..."; // Provide feedback
+        uiElements.currentWeatherDisplay.innerHTML = '';
+        uiElements.forecastDisplay.innerHTML = '';
+        uiElements.alertsDisplay.innerHTML = '';
 
         navigator.geolocation.getCurrentPosition(
             async (position) => {
@@ -344,7 +376,7 @@ async function getUserLocation() {
                 const lon = position.coords.longitude;
                 console.log("Geolocation successful:", lat, lon);
                 // Clear the "Getting your location..." message
-                cityInput.value = ''; // Clear placeholder after successful location retrieval
+                uiElements.cityInput.value = ''; // Clear placeholder after successful location retrieval
                 const reverseGeoUrl = `http://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
                 const reverseResponse = await fetch(reverseGeoUrl);
                 if (reverseResponse.ok) {
@@ -352,23 +384,23 @@ async function getUserLocation() {
                     if (reverseData.length > 0) {
                         const location = reverseData[0];
                         const locationData = { lat: lat, lon: lon, name: location.name, state: location.state };
-                        cityDisplayName.textContent = location.state ? `${location.name}, ${location.state}` : location.name;
-                        cityDisplayName.style.display = 'block';
-                        await getWeatherData(lat, lon, locationData);
+                        uiElements.locationNameSpan.textContent = location.state ? `${location.name}, ${location.state}` : location.name;
+                        uiElements.cityDisplayName.style.display = 'block';
+                        await getWeatherData(lat, lon, locationData, uiElements);
                     } else {
                         // Fallback if reverse geocoding fails to find a name
-                        await getWeatherData(lat, lon, { lat: lat, lon: lon, name: "Unknown Location" });
+                        await getWeatherData(lat, lon, { lat: lat, lon: lon, name: "Unknown Location" }, uiElements);
                     }
                 } else {
                     // Fallback if reverse geocoding API call fails
                     console.error(`HTTP error on reverse geocoding! status: ${reverseResponse.status}`);
-                    await getWeatherData(lat, lon, { lat: lat, lon: lon, name: "Unknown Location" });
+                    await getWeatherData(lat, lon, { lat: lat, lon: lon, name: "Unknown Location" }, uiElements);
                 }
-                showLoading(false); // Hide loading on success
+                showLoading(uiElements.loadingOverlay, false); // Hide loading on success
             },
             (error) => {
-                showLoading(false); // Hide loading on error
-                cityInput.value = ''; // Clear placeholder
+                showLoading(uiElements.loadingOverlay, false); // Hide loading on error
+                uiElements.cityInput.value = ''; // Clear placeholder
                 console.error("Geolocation error:", error);
                 let errorMessage = "Unable to retrieve your location.";
                 switch (error.code) {
@@ -382,34 +414,24 @@ async function getUserLocation() {
                         errorMessage = "The request to get user location timed out.";
                         break;
                 }
-                displayError(errorMessage);
-                currentWeatherDisplay.innerHTML = `<p>${errorMessage}</p>`;
+                displayError(uiElements.errorMessageDisplay, errorMessage);
+                uiElements.currentWeatherDisplay.innerHTML = `<p>${errorMessage}</p>`;
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } // Options for geolocation
         );
     } else {
-        displayError("Geolocation is not supported by your browser.");
+        displayError(uiElements.errorMessageDisplay, "Geolocation is not supported by your browser.");
     }
 }
 
+// Initial setup when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', async () => {
+    const uiElements = initializeUI(); // Initialize UI elements and event listeners
     const lastLocation = loadLastLocation();
     if (lastLocation) {
-        cityInput.value = lastLocation.name; // Display the name in the input
-        locationNameSpan.textContent = lastLocation.state ? `${lastLocation.name}, ${lastLocation.state}` : lastLocation.name;
-        cityDisplayName.style.display = 'block';
-        await getWeatherData(lastLocation.lat, lastLocation.lon, lastLocation); // Use stored lat/lon and pass the full object
+        uiElements.cityInput.value = lastLocation.name; // Display the name in the input
+        uiElements.locationNameSpan.textContent = lastLocation.state ? `${lastLocation.name}, ${lastLocation.state}` : lastLocation.name;
+        uiElements.cityDisplayName.style.display = 'block';
+        await getWeatherData(lastLocation.lat, lastLocation.lon, lastLocation, uiElements); // Use stored lat/lon and pass the full object
     }
 });
-
-// Initial call to get weather for a default location (e.g., New York)
-// This can be commented out if you prefer the dashboard to be empty on load
-/*
-getLatLonFromCity("New York").then(coords => {
-    if (coords) {
-        getWeatherData(coords.lat, coords.lon);
-        cityDisplayName.textContent = coords.state ? `${coords.name}, ${coords.state}` : coords.name;
-        cityDisplayName.style.display = 'block';
-    }
-});
-*/
