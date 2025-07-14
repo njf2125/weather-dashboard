@@ -5,9 +5,31 @@ import 'weather-icons/css/weather-icons.css';
 console.log("Hello from the Weather Dashboard!");
 
 const API_KEY = '63f740ae509cf372418696e2940a01f2'; // <<< REPLACE THIS WITH YOUR ACTUAL API KEY
+
 const BASE_URL = 'https://api.openweathermap.org/data/3.0/onecall';
 
 const LAST_LOCATION_KEY = 'lastWeatherLocation';
+const FAVORITE_CITIES_KEY = 'favoriteWeatherCities';
+
+// Function to save favorite cities to localStorage
+function saveFavoriteCities(favorites: { name: string; lat: number; lon: number; state?: string }[]) {
+    try {
+        localStorage.setItem(FAVORITE_CITIES_KEY, JSON.stringify(favorites));
+    } catch (e) {
+        console.error("Error saving favorite cities to localStorage:", e);
+    }
+}
+
+// Function to load favorite cities from localStorage
+function loadFavoriteCities(): { name: string; lat: number; lon: number; state?: string }[] {
+    try {
+        const stored = localStorage.getItem(FAVORITE_CITIES_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        console.error("Error loading favorite cities from localStorage:", e);
+        return [];
+    }
+}
 
 // Function to save the last searched location to localStorage
 function saveLastLocation(location: { lat: number; lon: number; name: string; state?: string }) {
@@ -199,7 +221,7 @@ export async function getLatLonFromCity(input: string, uiElements: UIElements): 
         geoUrl = `http://api.openweathermap.org/geo/1.0/zip?zip=${input},US&appid=${API_KEY}`;
     } else {
         // Assume it's a city name
-        const query = `${input},US`; // Example: "Wilmington,US"
+        const query = input;
         geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${query}&limit=1&appid=${API_KEY}`;
     }
 
@@ -275,6 +297,8 @@ interface UIElements {
     currentLocationButton: HTMLButtonElement;
     loadingOverlay: HTMLDivElement;
     errorMessageDisplay: HTMLDivElement;
+    citySuggestions: HTMLDivElement;
+    favoriteStar: HTMLSpanElement;
 }
 
 // Export initializeUI function
@@ -292,11 +316,13 @@ export function initializeUI(): UIElements {
     const currentLocationButton = document.getElementById('current-location-button') as HTMLButtonElement;
     const loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
     const errorMessageDisplay = document.getElementById('error-message') as HTMLDivElement;
+    const citySuggestions = document.getElementById('city-suggestions') as HTMLDivElement;
+    const favoriteStar = document.getElementById('favorite-star') as HTMLSpanElement;
 
     const uiElements: UIElements = {
         cityInput, searchButton, currentWeatherDisplay, forecastDisplay, alertsDisplay,
         cityDisplayName, locationNameSpan, activeAlertsLink, unitToggle, currentLocationButton,
-        loadingOverlay, errorMessageDisplay
+        loadingOverlay, errorMessageDisplay, citySuggestions, favoriteStar
     };
 
     // Event Listeners
@@ -330,7 +356,68 @@ export function initializeUI(): UIElements {
         }
     });
 
+    uiElements.cityInput.addEventListener('input', () => {
+        if (uiElements.cityInput.value.length > 2) {
+            getCitySuggestions(uiElements.cityInput.value, uiElements);
+        } else {
+            displayFavoriteCities(uiElements);
+        }
+    });
+
+    uiElements.cityInput.addEventListener('click', () => {
+        if (uiElements.cityInput.value.length === 0) {
+            displayFavoriteCities(uiElements);
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!uiElements.cityInput.contains(event.target as Node)) {
+            uiElements.citySuggestions.innerHTML = '';
+        }
+    });
+
     return uiElements;
+}
+
+async function getCitySuggestions(query: string, uiElements: UIElements) {
+    if (query.length < 3) {
+        uiElements.citySuggestions.innerHTML = '';
+        return;
+    }
+
+    const url = `http://api.openweathermap.org/geo/1.0/direct?q=${query}&limit=5&appid=${API_KEY}`;
+
+    try {
+        const response = await fetch(url);
+        const result = await response.json();
+        displayCitySuggestions(result, uiElements);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function displayCitySuggestions(suggestions: any[], uiElements: UIElements) {
+    uiElements.citySuggestions.innerHTML = '';
+    if (!suggestions) return;
+
+    suggestions.forEach(suggestion => {
+        const item = document.createElement('div');
+        item.classList.add('suggestion-item');
+        let text = suggestion.name;
+        if (suggestion.state) {
+            text += `, ${suggestion.state}`;
+        }
+        if (suggestion.country) {
+            text += `, ${suggestion.country}`;
+        }
+        item.textContent = text;
+        item.addEventListener('click', () => {
+            uiElements.cityInput.value = text;
+            uiElements.citySuggestions.innerHTML = '';
+            performSearch(uiElements);
+        });
+        uiElements.citySuggestions.appendChild(item);
+    });
 }
 
 // These functions now accept uiElements as a parameter
@@ -346,6 +433,21 @@ async function performSearch(uiElements: UIElements) {
             // Update the display name using the span
             uiElements.locationNameSpan.textContent = coords.state ? `${coords.name}, ${coords.state}` : coords.name;
             uiElements.cityDisplayName.style.display = 'block';
+
+            const favorites = loadFavoriteCities();
+            const isFavorite = favorites.some(fav => fav.name === (coords.state ? `${coords.name}, ${coords.state}` : coords.name));
+            updateFavoriteStar(isFavorite, uiElements);
+
+            uiElements.favoriteStar.onclick = () => {
+                const currentFavorites = loadFavoriteCities();
+                const isCurrentlyFavorite = currentFavorites.some(fav => fav.name === (coords.state ? `${coords.name}, ${coords.state}` : coords.name));
+                if (isCurrentlyFavorite) {
+                    removeFavorite({ name: (coords.state ? `${coords.name}, ${coords.state}` : coords.name), lat: coords.lat, lon: coords.lon, state: coords.state }, uiElements);
+                } else {
+                    addFavorite({ name: (coords.state ? `${coords.name}, ${coords.state}` : coords.name), lat: coords.lat, lon: coords.lon, state: coords.state }, uiElements);
+                }
+            };
+
         } else {
             showLoading(uiElements.loadingOverlay, false); // Hide loading if coords not found
         }
@@ -360,6 +462,61 @@ async function performSearch(uiElements: UIElements) {
         uiElements.locationNameSpan.textContent = ''; // Clear the span content
         uiElements.activeAlertsLink.classList.add('hidden'); // Hide the link
     }
+    uiElements.citySuggestions.innerHTML = '';
+}
+
+function displayFavoriteCities(uiElements: UIElements) {
+    const favorites = loadFavoriteCities();
+    uiElements.citySuggestions.innerHTML = '';
+    if (favorites.length > 0) {
+        favorites.forEach(fav => {
+            const item = document.createElement('div');
+            item.classList.add('favorite-item');
+
+            const name = document.createElement('span');
+            name.textContent = fav.name;
+            item.appendChild(name);
+
+            const removeButton = document.createElement('span');
+            removeButton.className = 'remove-favorite';
+            removeButton.textContent = 'x';
+            removeButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeFavorite(fav, uiElements);
+            });
+            item.appendChild(removeButton);
+
+            item.addEventListener('click', () => {
+                uiElements.cityInput.value = fav.name;
+                uiElements.citySuggestions.innerHTML = '';
+                performSearch(uiElements);
+            });
+            uiElements.citySuggestions.appendChild(item);
+        });
+    }
+}
+
+function addFavorite(location: { name: string; lat: number; lon: number; state?: string }, uiElements: UIElements) {
+    const favorites = loadFavoriteCities();
+    if (!favorites.some(fav => fav.name === location.name)) {
+        favorites.push(location);
+        saveFavoriteCities(favorites);
+        displayFavoriteCities(uiElements);
+        updateFavoriteStar(true, uiElements);
+    }
+}
+
+function removeFavorite(location: { name: string; lat: number; lon: number; state?: string }, uiElements: UIElements) {
+    let favorites = loadFavoriteCities();
+    favorites = favorites.filter(fav => fav.name !== location.name);
+    saveFavoriteCities(favorites);
+    displayFavoriteCities(uiElements);
+    updateFavoriteStar(false, uiElements);
+}
+
+function updateFavoriteStar(isFavorite: boolean, uiElements: UIElements) {
+    uiElements.favoriteStar.textContent = isFavorite ? '★' : '☆';
+    uiElements.favoriteStar.classList.remove('hidden');
 }
 
 async function getUserLocation(uiElements: UIElements) {
@@ -433,5 +590,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         uiElements.locationNameSpan.textContent = lastLocation.state ? `${lastLocation.name}, ${lastLocation.state}` : lastLocation.name;
         uiElements.cityDisplayName.style.display = 'block';
         await getWeatherData(lastLocation.lat, lastLocation.lon, lastLocation, uiElements); // Use stored lat/lon and pass the full object
+    } else {
+        // If no last location is stored, get the user's current location
+        await getUserLocation(uiElements);
     }
 });

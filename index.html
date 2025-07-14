@@ -15,7 +15,10 @@
     </header>
     <main>
         <section id="search-section">
-            <input type="text" id="city-input" placeholder="Enter city name">
+            <div class="search-container">
+                <input type="text" id="city-input" placeholder="Enter city name" autocomplete="off">
+                <div id="city-suggestions"></div>
+            </div>
             <button id="search-button">Search</button>
             <button id="current-location-button">Use My Location</button>
             <div id="unit-toggle">
@@ -30,6 +33,7 @@
 
         <div id="city-name-display">
             <span id="location-name"></span>
+            <span id="favorite-star" class="hidden">☆</span>
             <a id="active-alerts-link" href="#alerts" class="hidden">Active Alerts</a>
         </div>
 

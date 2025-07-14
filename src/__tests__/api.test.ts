@@ -21,6 +21,7 @@ let unitToggle: HTMLDivElement;
 let currentLocationButton: HTMLButtonElement;
 let loadingOverlay: HTMLDivElement;
 let errorMessageDisplay: HTMLDivElement;
+let citySuggestions: HTMLDivElement;
 
 // Define mock responses
 const mockGeocodingResponse = [
@@ -90,6 +91,7 @@ describe('API Calls', () => {
             <button id="current-location-button"></button>
             <div id="unit-toggle"></div>
             <div id="loading-overlay" class="hidden"></div>
+            <div id="city-suggestions"></div>
         `;
         // Re-get references to ensure they point to the new elements
         cityInput = document.getElementById('city-input') as HTMLInputElement;
@@ -104,6 +106,7 @@ describe('API Calls', () => {
         currentLocationButton = document.getElementById('current-location-button') as HTMLButtonElement;
         loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
         errorMessageDisplay = document.getElementById('error-message') as HTMLDivElement;
+        citySuggestions = document.getElementById('city-suggestions') as HTMLDivElement;
 
         // Initialize the UI after setting up the DOM
         initializeUI();
@@ -120,7 +123,7 @@ describe('API Calls', () => {
         const result = await getLatLonFromCity(city, {
             cityInput, searchButton, currentWeatherDisplay, forecastDisplay, alertsDisplay,
             cityDisplayName, locationNameSpan, activeAlertsLink, unitToggle, currentLocationButton,
-            loadingOverlay, errorMessageDisplay
+            loadingOverlay, errorMessageDisplay, citySuggestions
         });
 
         // Assert that fetch was called with the correct URL
@@ -137,7 +140,7 @@ describe('API Calls', () => {
         const result = await getLatLonFromCity('NonExistentCity', {
             cityInput, searchButton, currentWeatherDisplay, forecastDisplay, alertsDisplay,
             cityDisplayName, locationNameSpan, activeAlertsLink, unitToggle, currentLocationButton,
-            loadingOverlay, errorMessageDisplay
+            loadingOverlay, errorMessageDisplay, citySuggestions
         });
         expect(mockFetch).toHaveBeenCalled(); // Fetch still gets called
         expect(result).toBeNull();
@@ -157,7 +160,7 @@ describe('API Calls', () => {
         await getWeatherData(mockGeocodingResponse[0].lat, mockGeocodingResponse[0].lon, { lat: mockGeocodingResponse[0].lat, lon: mockGeocodingResponse[0].lon, name: 'Wilmington', state: 'North Carolina' }, {
             cityInput, searchButton, currentWeatherDisplay, forecastDisplay, alertsDisplay,
             cityDisplayName, locationNameSpan, activeAlertsLink, unitToggle, currentLocationButton,
-            loadingOverlay, errorMessageDisplay
+            loadingOverlay, errorMessageDisplay, citySuggestions
         });
     });
 
@@ -174,7 +177,7 @@ describe('API Calls', () => {
         await getWeatherData(mockGeocodingResponse[0].lat, mockGeocodingResponse[0].lon, { lat: mockGeocodingResponse[0].lat, lon: mockGeocodingResponse[0].lon, name: 'Wilmington', state: 'North Carolina' }, {
             cityInput, searchButton, currentWeatherDisplay, forecastDisplay, alertsDisplay,
             cityDisplayName, locationNameSpan, activeAlertsLink, unitToggle, currentLocationButton,
-            loadingOverlay, errorMessageDisplay
+            loadingOverlay, errorMessageDisplay, citySuggestions
         });
     });
 });
