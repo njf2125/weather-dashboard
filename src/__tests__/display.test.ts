@@ -83,21 +83,12 @@ describe('displayCurrentWeather', () => {
     });
 
     it('should handle different temperature units correctly', () => {
-        // To test units, you'd need to mock or pass the preferredUnits variable
-        // Since displayCurrentWeather currently relies on a global `preferredUnits`,
-        // we'd have to make it a parameter or mock the module.
-        // Let's assume for now that the `preferredUnits` variable is accessible or mockable.
-        // For a simple test, we confirm the current default behavior.
         const mockCurrent: CurrentWeatherData = {
             dt: 1678886400, sunrise: 1678860000, sunset: 1678900000, temp: 25.5, feels_like: 24.0, pressure: 0, humidity: 0, dew_point: 0, uvi: 0, clouds: 0, visibility: 0, wind_speed: 0, wind_deg: 0,
             weather: [{ id: 802, main: 'Clouds', description: 'scattered clouds', icon: '03d' }],
         };
-        // Temporarily set preferredUnits for the test, then reset it
-        const originalPreferredUnits = (window as any).preferredUnits; // Access global if it's not exported
-        (window as any).preferredUnits = 'metric'; // Set to metric for this test
         displayCurrentWeather(currentWeatherDisplay, mockCurrent, 'metric');
-        expect(currentWeatherDisplay.innerHTML).toContain('Temperature: 26°C'); // Assuming the global variable logic
-        (window as any).preferredUnits = originalPreferredUnits; // Reset
+        expect(currentWeatherDisplay.innerHTML).toContain('Temperature: 26°C');
     });
 });
 

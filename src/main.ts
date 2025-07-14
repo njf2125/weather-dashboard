@@ -79,7 +79,7 @@ function getWeatherIconClass(iconCode: string): string {
 }
 
 // Helper function to display error messages on the page
-function displayError(errorMessageDisplay: HTMLDivElement, message: string | null) {
+export function displayError(errorMessageDisplay: HTMLDivElement, message: string | null) {
     if (message) {
         errorMessageDisplay.textContent = message;
         errorMessageDisplay.classList.remove('hidden');
@@ -111,9 +111,24 @@ export async function getWeatherData(lat: number, lon: number, locationData: { l
         const data: OpenWeatherOneCallResponse = await response.json();
         console.log("Weather data received:", data);
 
-        displayCurrentWeather(uiElements.currentWeatherDisplay, data.current, preferredUnits);
-        displayForecast(uiElements.forecastDisplay, data.daily, preferredUnits);
-        displayAlerts(uiElements.alertsDisplay, uiElements.activeAlertsLink, data.alerts);
+        if (data.current) {
+            displayCurrentWeather(uiElements.currentWeatherDisplay, data.current, preferredUnits);
+        } else {
+            uiElements.currentWeatherDisplay.innerHTML = '<p>Current weather data not available.</p>';
+        }
+
+        if (data.daily) {
+            displayForecast(uiElements.forecastDisplay, data.daily, preferredUnits);
+        } else {
+            uiElements.forecastDisplay.innerHTML = '<p>Forecast data not available.</p>';
+        }
+
+        if (data.alerts) {
+            displayAlerts(uiElements.alertsDisplay, uiElements.activeAlertsLink, data.alerts);
+        } else {
+            uiElements.alertsDisplay.innerHTML = '<p>No active weather alerts.</p>';
+        }
+
         if (locationData) {
             saveLastLocation(locationData);
         }
@@ -284,7 +299,7 @@ export async function getLatLonFromCity(input: string, uiElements: UIElements): 
     }
 }
 
-interface UIElements {
+export interface UIElements {
     cityInput: HTMLInputElement;
     searchButton: HTMLButtonElement;
     currentWeatherDisplay: HTMLDivElement;
@@ -429,7 +444,7 @@ async function performSearch(uiElements: UIElements) {
         console.log(`Searching for weather in: ${city}`);
         const coords = await getLatLonFromCity(city, uiElements);
         if (coords) {
-            getWeatherData(coords.lat, coords.lon, coords, uiElements);
+            await getWeatherData(coords.lat, coords.lon, coords, uiElements);
             // Update the display name using the span
             uiElements.locationNameSpan.textContent = coords.state ? `${coords.name}, ${coords.state}` : coords.name;
             uiElements.cityDisplayName.style.display = 'block';
@@ -465,7 +480,7 @@ async function performSearch(uiElements: UIElements) {
     uiElements.citySuggestions.innerHTML = '';
 }
 
-function displayFavoriteCities(uiElements: UIElements) {
+export function displayFavoriteCities(uiElements: UIElements) {
     const favorites = loadFavoriteCities();
     uiElements.citySuggestions.innerHTML = '';
     if (favorites.length > 0) {
@@ -489,7 +504,7 @@ function displayFavoriteCities(uiElements: UIElements) {
             item.addEventListener('click', () => {
                 uiElements.cityInput.value = fav.name;
                 uiElements.citySuggestions.innerHTML = '';
-                performSearch(uiElements);
+                getWeatherData(fav.lat, fav.lon, fav, uiElements);
             });
             uiElements.citySuggestions.appendChild(item);
         });
@@ -584,14 +599,4 @@ async function getUserLocation(uiElements: UIElements) {
 // Initial setup when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', async () => {
     const uiElements = initializeUI(); // Initialize UI elements and event listeners
-    const lastLocation = loadLastLocation();
-    if (lastLocation) {
-        uiElements.cityInput.value = lastLocation.name; // Display the name in the input
-        uiElements.locationNameSpan.textContent = lastLocation.state ? `${lastLocation.name}, ${lastLocation.state}` : lastLocation.name;
-        uiElements.cityDisplayName.style.display = 'block';
-        await getWeatherData(lastLocation.lat, lastLocation.lon, lastLocation, uiElements); // Use stored lat/lon and pass the full object
-    } else {
-        // If no last location is stored, get the user's current location
-        await getUserLocation(uiElements);
-    }
 });
