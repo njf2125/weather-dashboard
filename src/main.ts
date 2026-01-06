@@ -4,9 +4,7 @@ import 'weather-icons/css/weather-icons.css';
 
 console.log("Hello from the Weather Dashboard!");
 
-const API_KEY = 'APIKEY'; // <<< REPLACE THIS WITH YOUR ACTUAL API KEY
-
-const BASE_URL = 'https://api.openweathermap.org/data/3.0/onecall';
+// API Key is now handled by the backend function /api/weather
 
 const LAST_LOCATION_KEY = 'lastWeatherLocation';
 const FAVORITE_CITIES_KEY = 'favoriteWeatherCities';
@@ -100,7 +98,7 @@ function showLoading(loadingOverlay: HTMLDivElement, isLoading: boolean) {
 
 // Function to fetch weather data
 export async function getWeatherData(lat: number, lon: number, locationData: { lat: number; lon: number; name: string; state?: string }, uiElements: UIElements) {
-    const url = `${BASE_URL}?lat=${lat}&lon=${lon}&exclude=hourly,minutely&units=${preferredUnits}&appid=${API_KEY}`;
+    const url = `/api/weather?type=onecall&lat=${lat}&lon=${lon}&exclude=hourly,minutely&units=${preferredUnits}`;
 
     try {
         const response = await fetch(url);
@@ -233,11 +231,11 @@ export async function getLatLonFromCity(input: string, uiElements: UIElements): 
     let geoUrl: string;
     // Check if the input is a zip code (5 digits for US zip codes)
     if (/^\d{5}$/.test(input)) {
-        geoUrl = `http://api.openweathermap.org/geo/1.0/zip?zip=${input},US&appid=${API_KEY}`;
+        geoUrl = `/api/weather?type=zip&zip=${input},US`;
     } else {
         // Assume it's a city name
         const query = input;
-        geoUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${query}&limit=1&appid=${API_KEY}`;
+        geoUrl = `/api/weather?type=direct&q=${query}&limit=1`;
     }
 
     try {
@@ -259,7 +257,7 @@ export async function getLatLonFromCity(input: string, uiElements: UIElements): 
             if (data.lat && data.lon) {
                 console.log("Geocoding data for zip code", input, ":", data);
                 // For zip codes, we need to do a reverse lookup to get the state
-                const reverseGeoUrl = `http://api.openweathermap.org/geo/1.0/reverse?lat=${data.lat}&lon=${data.lon}&limit=1&appid=${API_KEY}`;
+                const reverseGeoUrl = `/api/weather?type=reverse&lat=${data.lat}&lon=${data.lon}&limit=1`;
                 const reverseResponse = await fetch(reverseGeoUrl);
                 if (!reverseResponse.ok) {
                     // We can still proceed without the state, just log the error
@@ -400,7 +398,7 @@ async function getCitySuggestions(query: string, uiElements: UIElements) {
         return;
     }
 
-    const url = `http://api.openweathermap.org/geo/1.0/direct?q=${query}&limit=5&appid=${API_KEY}`;
+    const url = `/api/weather?type=direct&q=${query}&limit=5`;
 
     try {
         const response = await fetch(url);
@@ -549,7 +547,7 @@ async function getUserLocation(uiElements: UIElements) {
                 console.log("Geolocation successful:", lat, lon);
                 // Clear the "Getting your location..." message
                 uiElements.cityInput.value = ''; // Clear placeholder after successful location retrieval
-                const reverseGeoUrl = `http://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`;
+                const reverseGeoUrl = `/api/weather?type=reverse&lat=${lat}&lon=${lon}&limit=1`;
                 const reverseResponse = await fetch(reverseGeoUrl);
                 if (reverseResponse.ok) {
                     const reverseData = await reverseResponse.json();
