@@ -40,7 +40,7 @@ A dynamic web application that displays current weather conditions, a 5-day fore
 4.  **Update API Key in `src/main.ts`:**
     Open `src/main.ts` and replace `'YOUR_API_KEY_HERE'` with your actual OpenWeatherMap API key:
     ```typescript
-    const API_KEY = '63f740ae509cf372418696e2940a01f2'; // <<< REPLACE THIS WITH YOUR ACTUAL API KEY
+    const API_KEY = 'APIKEY'; // <<< REPLACE THIS WITH YOUR ACTUAL API KEY
     ```
 
 5.  **Start the development server:**
