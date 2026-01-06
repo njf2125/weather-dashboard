@@ -4,7 +4,7 @@ import 'weather-icons/css/weather-icons.css';
 
 console.log("Hello from the Weather Dashboard!");
 
-const API_KEY = '63f740ae509cf372418696e2940a01f2'; // <<< REPLACE THIS WITH YOUR ACTUAL API KEY
+const API_KEY = 'APIKEY'; // <<< REPLACE THIS WITH YOUR ACTUAL API KEY
 
 const BASE_URL = 'https://api.openweathermap.org/data/3.0/onecall';
 
