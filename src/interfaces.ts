@@ -97,3 +97,11 @@ export interface OpenWeatherOneCallResponse {
     daily: DailyForecastData[]; // Array of daily forecasts (up to 8 days)
     alerts?: WeatherAlert[]; // Optional array of weather alerts
 }
+
+export interface LocationData {
+    name: string;
+    lat: number;
+    lon: number;
+    state?: string;
+    country?: string;
+}

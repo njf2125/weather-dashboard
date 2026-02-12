@@ -1,132 +1,92 @@
-// src/__tests__/api.test.ts
-import { initializeUI, UIElements } from '../main';
-import { OpenWeatherOneCallResponse } from '../interfaces';
+import { fetchWeatherData, fetchLocationFromQuery, fetchCitySuggestions, fetchReverseGeocoding } from '../utils/api';
 
 // Mock the global fetch function
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-// Mock localStorage
-const localStorageMock = (() => {
-    let store: { [key: string]: string } = {};
-    return {
-        getItem: (key: string) => store[key] || null,
-        setItem: (key: string, value: string) => { store[key] = value; },
-        removeItem: (key: string) => { delete store[key]; },
-        clear: () => { store = {}; }
-    };
-})();
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
-
-// Declare variables for DOM elements globally, but assign them in initializeUI
-let cityInput: HTMLInputElement;
-let searchButton: HTMLButtonElement;
-let currentWeatherDisplay: HTMLDivElement;
-let forecastDisplay: HTMLDivElement;
-let alertsDisplay: HTMLDivElement;
-let cityDisplayName: HTMLDivElement;
-let locationNameSpan: HTMLSpanElement;
-let activeAlertsLink: HTMLAnchorElement;
-let unitToggle: HTMLDivElement;
-let currentLocationButton: HTMLButtonElement;
-let loadingOverlay: HTMLDivElement;
-let errorMessageDisplay: HTMLDivElement;
-let citySuggestions: HTMLDivElement;
-let favoriteStar: HTMLSpanElement;
-
-// Define mock responses
-const mockGeocodingResponse = [
-    {
-        lat: 34.2257,
-        lon: -77.9447,
-        name: 'Wilmington',
-        country: 'US',
-        state: 'North Carolina',
-    },
-];
-
-const mockWeatherResponse: OpenWeatherOneCallResponse = {
-    lat: 34.2257,
-    lon: -77.9447,
-    timezone: 'America/New_York',
-    timezone_offset: -14400,
-    current: {
-        dt: 1678886400,
-        sunrise: 1678860000,
-        sunset: 1678900000,
-        temp: 20.5,
-        feels_like: 19.0,
-        pressure: 1012,
-        humidity: 70,
-        dew_point: 10.0,
-        uvi: 5.0,
-        clouds: 40,
-        visibility: 10000,
-        wind_speed: 4.5,
-        wind_deg: 200,
-        weather: [{ id: 800, main: 'Clear', description: 'clear sky', icon: '01d' }],
-    },
-    daily: Array.from({ length: 8 }, (_, i) => ({
-        dt: 1678886400 + (i * 86400),
-        sunrise: 0, sunset: 0, moonrise: 0, moonset: 0, moon_phase: 0,
-        temp: { day: 20 + i, min: 10 + i, max: 30 + i, night: 0, eve: 0, morn: 0 },
-        feels_like: { day: 0, night: 0, eve: 0, morn: 0 },
-        pressure: 0, humidity: 0, dew_point: 0, wind_speed: 0, wind_deg: 0, wind_gust: 0,
-        weather: [{ id: 800, main: 'Clear', description: 'clear sky', icon: '01d' }],
-        clouds: 0, pop: 0.5, uvi: 0
-    })),
-    alerts: [{
-        sender_name: 'NWS',
-        event: 'Test Alert',
-        start: 1678886000,
-        end: 1678890000,
-        description: 'This is a test alert description.',
-        tags: []
-    }],
-};
-
-describe('Weather Dashboard Public API', () => {
-    let uiElements: UIElements;
-
+describe('API Utility Functions', () => {
     beforeEach(() => {
-        jest.useFakeTimers();
-        jest.clearAllMocks();
-        localStorageMock.clear();
-
-        document.body.innerHTML = `
-            <div id="current-weather-display"></div>
-            <div id="forecast-display"></div>
-            <div id="alerts-display"></div>
-            <div id="error-message"></div>
-            <div id="city-name-display"><span id="location-name"></span><a id="active-alerts-link"></a></div>
-            <input type="text" id="city-input">
-            <button id="search-button"></button>
-            <button id="current-location-button"></button>
-            <div id="unit-toggle"></div>
-            <div id="loading-overlay" class="hidden"></div>
-            <div id="city-suggestions"></div>
-            <span id="favorite-star"></span>
-        `;
-
-        cityInput = document.getElementById('city-input') as HTMLInputElement;
-        searchButton = document.getElementById('search-button') as HTMLButtonElement;
-        currentWeatherDisplay = document.getElementById('current-weather-display') as HTMLDivElement;
-        forecastDisplay = document.getElementById('forecast-display') as HTMLDivElement;
-        alertsDisplay = document.getElementById('alerts-display') as HTMLDivElement;
-        cityDisplayName = document.getElementById('city-name-display') as HTMLDivElement;
-        locationNameSpan = document.getElementById('location-name') as HTMLSpanElement;
-        activeAlertsLink = document.getElementById('active-alerts-link') as HTMLAnchorElement;
-        unitToggle = document.getElementById('unit-toggle') as HTMLDivElement;
-        currentLocationButton = document.getElementById('current-location-button') as HTMLButtonElement;
-        loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
-        errorMessageDisplay = document.getElementById('error-message') as HTMLDivElement;
-        citySuggestions = document.getElementById('city-suggestions') as HTMLDivElement;
-        favoriteStar = document.getElementById('favorite-star') as HTMLSpanElement;
-
-        uiElements = initializeUI();
+        mockFetch.mockClear();
     });
 
-    it('should pass a basic test', () => {
-        expect(true).toBe(true);
+    describe('fetchWeatherData', () => {
+        it('should fetch weather data successfully', async () => {
+            const mockResponse = { current: { temp: 20 } };
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: async () => mockResponse,
+            });
+
+            const data = await fetchWeatherData(10, 20, 'metric');
+            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('lat=10'));
+            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('lon=20'));
+            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('units=metric'));
+            expect(data).toEqual(mockResponse);
+        });
+
+        it('should throw an error if fetch fails', async () => {
+            mockFetch.mockResolvedValueOnce({
+                ok: false,
+                status: 500,
+            });
+
+            await expect(fetchWeatherData(10, 20, 'metric')).rejects.toThrow('HTTP error! status: 500');
+        });
+    });
+
+    describe('fetchLocationFromQuery', () => {
+        it('should fetch location from city name', async () => {
+            const mockResponse = [{ lat: 10, lon: 20, name: 'Test City', country: 'TC' }];
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: async () => mockResponse,
+            });
+
+            const data = await fetchLocationFromQuery('Test City');
+            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('q=Test City&limit=1'));
+            expect(data).toEqual({ lat: 10, lon: 20, name: 'Test City', country: 'TC', state: undefined });
+        });
+
+        it('should fetch location from zip code', async () => {
+             // Mock zip response
+            const mockZipResponse = { lat: 10, lon: 20, name: 'Zip City', country: 'US' };
+            // Mock reverse geocoding response (for state)
+            const mockReverseResponse = [{ name: 'Zip City', state: 'State', country: 'US' }];
+
+            mockFetch
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => mockZipResponse,
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => mockReverseResponse,
+                });
+
+            const data = await fetchLocationFromQuery('12345');
+            expect(mockFetch).toHaveBeenNthCalledWith(1, expect.stringContaining('zip=12345,US'));
+            expect(mockFetch).toHaveBeenNthCalledWith(2, expect.stringContaining('type=reverse'));
+            expect(data).toEqual({ lat: 10, lon: 20, name: 'Zip City', country: 'US', state: 'State' });
+        });
+    });
+
+    describe('fetchCitySuggestions', () => {
+        it('should return empty array for short query', async () => {
+            const data = await fetchCitySuggestions('ab');
+            expect(data).toEqual([]);
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it('should fetch suggestions', async () => {
+            const mockResponse = [{ name: 'City', lat: 1, lon: 2, country: 'C' }];
+            mockFetch.mockResolvedValueOnce({
+                ok: true,
+                json: async () => mockResponse,
+            });
+
+            const data = await fetchCitySuggestions('City');
+            expect(data).toHaveLength(1);
+            expect(data[0].name).toBe('City');
+        });
     });
 });

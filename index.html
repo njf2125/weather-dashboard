@@ -4,62 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Dashboard</title>
-    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="loading-overlay" class="hidden">
-        <div class="spinner"></div>
-    </div>
-    <header>
-        <h1>Weather Dashboard</h1>
-    </header>
-    <main>
-        <section id="search-section">
-            <div class="search-container">
-                <input type="text" id="city-input" placeholder="Enter city name" autocomplete="off">
-                <div id="city-suggestions"></div>
-            </div>
-            <button id="search-button">Search</button>
-            <button id="current-location-button">Use My Location</button>
-            <div id="unit-toggle">
-                <label>
-                    <input type="radio" name="temp-unit" value="imperial" checked> °F
-                </label>
-                <label>
-                    <input type="radio" name="temp-unit" value="metric"> °C
-                </label>
-            </div>
-        </section>
-
-        <div id="city-name-display">
-            <span id="location-name"></span>
-            <span id="favorite-star" class="hidden">☆</span>
-            <a id="active-alerts-link" href="#alerts" class="hidden">Active Alerts</a>
-        </div>
-
-        <div id="error-message" class="hidden"></div>
-
-        <div class="weather-container">
-            <section id="current-weather">
-                <h2>Current Conditions</h2>
-                <div id="current-weather-display">
-                </div>
-            </section>
-
-            <section id="forecast">
-                <h2>5-Day Forecast</h2>
-                <div id="forecast-display">
-                </div>
-            </section>
-        </div>
-
-        <section id="alerts">
-            <h2>Weather Alerts</h2>
-            <div id="alerts-display">
-                </div>
-        </section>
-    </main>
-
-    <script type="module" src="src/main.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="src/index.tsx"></script>
 </body>
 </html>
